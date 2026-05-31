@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>家庭物品库存管理</title>
+    <meta name="description" content="家庭物品库存管理应用，支持离线使用">
+    <meta name="theme-color" content="#3498db">
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoi5a6256ul5L+u5pmw5oiQ5rW3Iiwi c2hvcnRfbmFtZSI6Ium9veSJ9">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%233498db'/%3E%3Ctext x='50' y='65' font-size='50' text-anchor='middle' fill='white'%3E📦%3C/text%3E%3C/svg%3E">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            padding: 16px;
+            padding-bottom: 80px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .header h1 {
+            font-size: 24px;
+            color: #2c3e50;
+        }
+        .alert-badge {
+            position: absolute;
+            right: 0;
+            top: -8px;
+            background-color: #e74c3c;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            min-width: 20px;
+            height: 20px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .alert-badge:hover {
+            transform: scale(1.1);
+        }
+        .alert-badge.hidden {
+            display: none;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #34495e;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+        .input-section {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        @media (min-width: 768px) {
+            .input-section {
+                grid-template-columns: 2fr 1fr 80px 80px 1fr auto;
+                align-items: end;
+            }
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group label {
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-bottom: 4px;
+        }
+        .form-group input,
+        .form-group select {
+            padding: 12px;
+            border: 1px solid #dfe6e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        .btn-primary {
+            padding: 12px 24px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            white-space: nowrap;
+        }
+        .btn-primary:hover {
+            background-color: #2980b9;
+        }
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        @media (min-width: 600px) {
+            .charts-container {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        .chart-wrapper {
+            position: relative;
+            height: 250px;
+        }
+        .urgent-list {
+            background-color: #fff5f5;
+            border: 1px solid #fed7d7;
+        }
+        .urgent-list .card-title {
+            color: #c53030;
+            border-bottom-color: #fed7d7;
+        }
+        .urgent-list .empty-text {
+            color: #718096;
+            text-align: center;
+            padding: 20px;
+            font-size: 14px;
+        }
+        .urgent-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #fed7d7;
+        }
+        .urgent-item:last-child {
+            border-bottom: none;
+        }
+        .urgent-item-info {
+            flex: 1;
+        }
+        .urgent-item-name {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        .urgent-item-detail {
+            font-size: 13px;
+            color: #718096;
+        }
+        .urgent-item-stock {
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .stock-zero {
+            background-color: #fed7d7;
+            color: #c53030;
+        }
+        .stock-low {
+            background-color: #feebc8;
+            color: #c05621;
+        }
+        .filter-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 16px;
+            align-items: center;
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .filter-group label {
+            font-size: 13px;
+            color: #7f8c8d;
+        }
+        .filter-group select {
+            padding: 8px 12px;
+            border: 1px solid #dfe6e9;
+            border-radius: 6px;
+            font-size: 14px;
+            background-color: white;
+        }
+        .sort-btn {
+            padding: 8px 14px;
+            border: 1px solid #dfe6e9;
+            border-radius: 6px;
+            background-color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .sort-btn:hover {
+            background-color: #f8f9fa;
+            border-color: #3498db;
+        }
+        .sort-btn.active {
+            background-color: #e3f2fd;
+            border-color: #3498db;
+            color: #1565c0;
+        }
+        .table-wrapper {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 550px;
+        }
+        th, td {
+            padding: 12px 8px;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            font-size: 13px;
+            color: #7f8c8d;
+        }
+        td {
+            font-size: 14px;
+        }
+        .status-tag {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-normal {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .priority-tag {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .priority-high {
+            background-color: #fed7d7;
+            color: #c53030;
+        }
+        .priority-medium {
+            background-color: #feebc8;
+            color: #c05621;
+        }
+        .priority-low {
+            background-color: #e6fffa;
+            color: #234e52;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 6px;
+        }
+        .btn-action {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-inc {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .btn-inc:hover {
+            background-color: #c3e6cb;
+        }
+        .btn-dec {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .btn-dec:hover {
+            background-color: #ffeeba;
+        }
+        .btn-dec:disabled {
+            background-color: #f8f9fa;
+            color: #ccc;
+            cursor: not-allowed;
+        }
+        .btn-delete {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .btn-delete:hover {
+            background-color: #f5c6cb;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #95a5a6;
+        }
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .editable {
+            cursor: text;
+            padding: 4px 8px;
+            border-radius: 4px;
+            min-width: 60px;
+            display: inline-block;
+            transition: background-color 0.2s;
+        }
+        .editable:hover {
+            background-color: #e8f4fd;
+        }
+        .editable:focus {
+            outline: 2px solid #3498db;
+            background-color: #fff;
+        }
+        .editable-select {
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            font-size: 12px;
+            background-color: transparent;
+            transition: all 0.2s;
+        }
+        .editable-select:hover {
+            background-color: #e8f4fd;
+            border-color: #dfe6e9;
+        }
+        .editable-select:focus {
+            outline: none;
+            border-color: #3498db;
+            background-color: #fff;
+        }
+        .dev-toolbar-toggle {
+            position: fixed;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 80px;
+            background: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 8px 0 0 8px;
+            cursor: pointer;
+            font-size: 16px;
+            writing-mode: vertical-rl;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+        .dev-toolbar-toggle:hover {
+            background: #34495e;
+            width: 48px;
+        }
+        .dev-toolbar {
+            position: fixed;
+            right: -350px;
+            top: 0;
+            width: 350px;
+            height: 100%;
+            background: #2c3e50;
+            color: white;
+            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.2);
+            transition: right 0.3s;
+            z-index: 1001;
+            overflow-y: auto;
+        }
+        .dev-toolbar.open {
+            right: 0;
+        }
+        .dev-toolbar-header {
+            background: #34495e;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+        }
+        .dev-toolbar-header h3 {
+            font-size: 16px;
+            margin: 0;
+        }
+        .dev-toolbar-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+        .dev-toolbar-close:hover {
+            background: #4a6572;
+        }
+        .dev-toolbar-section {
+            padding: 16px;
+            border-bottom: 1px solid #4a6572;
+        }
+        .dev-toolbar-section h4 {
+            font-size: 14px;
+            margin-bottom: 12px;
+            color: #bdc3c7;
+        }
+        .dev-toolbar-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 8px;
+            background: #34495e;
+            border-radius: 6px;
+        }
+        .dev-toolbar-item label {
+            font-size: 13px;
+        }
+        .dev-toolbar-switch {
+            width: 44px;
+            height: 24px;
+            background: #7f8c8d;
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .dev-toolbar-switch.active {
+            background: #27ae60;
+        }
+        .dev-toolbar-switch::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: left 0.2s;
+        }
+        .dev-toolbar-switch.active::after {
+            left: 22px;
+        }
+        .dev-toolbar-btn {
+            width: 100%;
+            padding: 10px 16px;
+            margin-top: 8px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .dev-toolbar-btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        .dev-toolbar-btn-primary:hover {
+            background: #2980b9;
+        }
+        .dev-toolbar-btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        .dev-toolbar-btn-danger:hover {
+            background: #c0392b;
+        }
+        .dev-toolbar-input {
+            width: 100%;
+            padding: 8px 12px;
+            margin-top: 8px;
+            border: 1px solid #4a6572;
+            border-radius: 6px;
+            background: #34495e;
+            color: white;
+            font-size: 13px;
+        }
+        .dev-toolbar-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        .dev-toolbar-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .dev-toolbar-row .dev-toolbar-input {
+            flex: 1;
+        }
+        .dev-toolbar-small-btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            background: #e67e22;
+            color: white;
+            white-space: nowrap;
+        }
+        .dev-toolbar-small-btn:hover {
+            background: #d35400;
+        }
+        .dev-toolbar-column-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .backup-section {
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px dashed #dfe6e9;
+        }
+        .backup-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn-backup {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-export {
+            background: #27ae60;
+            color: white;
+        }
+        .btn-export:hover {
+            background: #219a52;
+        }
+        .btn-import {
+            background: #3498db;
+            color: white;
+        }
+        .btn-import:hover {
+            background: #2980b9;
+        }
+        .btn-reset {
+            background: #e74c3c;
+            color: white;
+        }
+        .btn-reset:hover {
+            background: #c0392b;
+        }
+        .pwa-install-banner {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2c3e50;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1002;
+            text-align: center;
+        }
+        .pwa-install-banner.show {
+            display: block;
+        }
+        .pwa-install-banner p {
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        .pwa-install-btn {
+            padding: 10px 24px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .pwa-install-btn:hover {
+            background: #219a52;
+        }
+        .pwa-dismiss-btn {
+            margin-left: 10px;
+            background: transparent;
+            color: #bdc3c7;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 12px;
+            }
+            .header h1 {
+                font-size: 20px;
+            }
+            .card {
+                padding: 16px;
+            }
+            .form-group input,
+            .form-group select {
+                padding: 14px;
+                font-size: 16px;
+            }
+            .btn-primary {
+                padding: 14px 24px;
+            }
+            th, td {
+                padding: 10px 6px;
+                font-size: 13px;
+            }
+            .btn-action {
+                width: 36px;
+                height: 36px;
+                font-size: 20px;
+            }
+            .sort-btn {
+                padding: 10px 14px;
+                font-size: 14px;
+            }
+            .editable {
+                min-width: 40px;
+                padding: 2px 4px;
+            }
+            .backup-buttons {
+                flex-direction: column;
+            }
+            .btn-backup {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="dev-toolbar-toggle" onclick="toggleDevToolbar()">⚙️ 开发</button>
+    
+    <div class="dev-toolbar" id="devToolbar">
+        <div class="dev-toolbar-header">
+            <h3>🛠️ 开发者工具栏</h3>
+            <button class="dev-toolbar-close" onclick="toggleDevToolbar()">×</button>
+        </div>
+        <div class="dev-toolbar-section">
+            <h4>📦 模块显示</h4>
+            <div class="dev-toolbar-item">
+                <label>输入区域</label>
+                <div class="dev-toolbar-switch active" data-module="inputCard" onclick="toggleModule(this)"></div>
+            </div>
+            <div class="dev-toolbar-item">
+                <label>图表看板</label>
+                <div class="dev-toolbar-switch active" data-module="chartCard" onclick="toggleModule(this)"></div>
+            </div>
+            <div class="dev-toolbar-item">
+                <label>急需清单</label>
+                <div class="dev-toolbar-switch active" data-module="urgentCard" onclick="toggleModule(this)"></div>
+            </div>
+            <div class="dev-toolbar-item">
+                <label>物品列表</label>
+                <div class="dev-toolbar-switch active" data-module="listCard" onclick="toggleModule(this)"></div>
+            </div>
+        </div>
+        <div class="dev-toolbar-section">
+            <h4>🏷️ 分类管理</h4>
+            <div id="categoryList" class="dev-toolbar-column-list"></div>
+            <div class="dev-toolbar-row">
+                <input type="text" class="dev-toolbar-input" id="newCategoryKey" placeholder="键名">
+                <input type="text" class="dev-toolbar-input" id="newCategoryName" placeholder="名称">
+                <input type="text" class="dev-toolbar-input" id="newCategoryColor" placeholder="颜色">
+            </div>
+            <button class="dev-toolbar-btn dev-toolbar-btn-primary" onclick="addCategory()">添加分类</button>
+        </div>
+        <div class="dev-toolbar-section">
+            <h4>📋 表格列管理</h4>
+            <div id="columnList" class="dev-toolbar-column-list"></div>
+        </div>
+        <div class="dev-toolbar-section">
+            <h4>💾 数据管理</h4>
+            <button class="dev-toolbar-btn dev-toolbar-btn-primary" onclick="resetData()">重置所有数据</button>
+        </div>
+    </div>
+    
+    <div id="pwaInstallBanner" class="pwa-install-banner">
+        <p>📱 收藏到主屏幕即可获得原生 App 体验</p>
+        <button class="pwa-install-btn" onclick="installPWA()">立即安装</button>
+        <button class="pwa-dismiss-btn" onclick="dismissPWAInstall()">暂不</button>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🏠 家庭物品库存管理</h1>
+            <div id="alertBadge" class="alert-badge hidden" onclick="scrollToUrgentList()">0</div>
+        </div>
+
+        <div id="inputCard" class="card">
+            <h2 class="card-title">📝 快速添加物品</h2>
+            <div class="input-section">
+                <div class="form-group">
+                    <label for="itemName">物品名称</label>
+                    <input type="text" id="itemName" placeholder="输入物品名称">
+                </div>
+                <div class="form-group">
+                    <label for="itemCategory">分类</label>
+                    <select id="itemCategory">
+                        <option value="essential">必需品</option>
+                        <option value="wait">等优惠再买</option>
+                        <option value="digital">数码类</option>
+                        <option value="other">其他</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="itemQuantity">当前数量</label>
+                    <input type="number" id="itemQuantity" min="0" value="1">
+                </div>
+                <div class="form-group">
+                    <label for="itemThreshold">最低阈值</label>
+                    <input type="number" id="itemThreshold" min="0" value="1">
+                </div>
+                <div class="form-group">
+                    <label for="itemPriority">优先级</label>
+                    <select id="itemPriority">
+                        <option value="high">高</option>
+                        <option value="medium" selected>中</option>
+                        <option value="low">低</option>
+                    </select>
+                </div>
+                <button class="btn-primary" onclick="addOrUpdateItem()">添加/更新</button>
+            </div>
+        </div>
+
+        <div id="chartCard" class="card">
+            <h2 class="card-title">📊 库存可视化</h2>
+            <div class="charts-container">
+                <div class="chart-wrapper">
+                    <canvas id="pieChart"></canvas>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="barChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div id="urgentCard" class="card urgent-list">
+            <h2 class="card-title">⚠️ 急需购买清单</h2>
+            <div id="urgentList">
+                <div class="empty-text">暂无急需购买的物品 ✓</div>
+            </div>
+        </div>
+
+        <div id="listCard" class="card">
+            <h2 class="card-title">📋 物品列表</h2>
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label for="filterCategory">分类筛选：</label>
+                    <select id="filterCategory" onchange="renderItemList()">
+                        <option value="all">全部</option>
+                        <option value="essential">必需品</option>
+                        <option value="wait">等优惠再买</option>
+                        <option value="digital">数码类</option>
+                        <option value="other">其他</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filterStatus">状态筛选：</label>
+                    <select id="filterStatus" onchange="renderItemList()">
+                        <option value="all">全部</option>
+                        <option value="warning">急需补货</option>
+                    </select>
+                </div>
+                <button id="sortBtn" class="sort-btn" onclick="toggleSort()">
+                    <span id="sortIcon">↑</span> 优先级
+                </button>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>名称</th>
+                            <th>分类</th>
+                            <th>当前数量</th>
+                            <th>最低阈值</th>
+                            <th>优先级</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemTableBody"></tbody>
+                </table>
+            </div>
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <div class="empty-state-icon">📦</div>
+                <p>暂无物品</p>
+            </div>
+            
+            <div class="backup-section">
+                <div class="backup-buttons">
+                    <button class="btn-backup btn-export" onclick="exportData()">📤 导出数据</button>
+                    <button class="btn-backup btn-import" onclick="importData()">📥 导入数据</button>
+                    <button class="btn-backup btn-reset" onclick="confirmReset()">🗑️ 重置数据</button>
+                </div>
+                <input type="file" id="importFile" style="display: none;" accept=".json" onchange="handleImport(event)">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== PWA 安装提示 ==========
+        let deferredPrompt = null;
+        
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('pwaInstallBanner').classList.add('show');
+        });
+
+        function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('用户已安装 PWA');
+                    }
+                    deferredPrompt = null;
+                    document.getElementById('pwaInstallBanner').classList.remove('show');
+                });
+            }
+        }
+
+        function dismissPWAInstall() {
+            document.getElementById('pwaInstallBanner').classList.remove('show');
+        }
+
+        // ========== Service Worker 注册（内联 Blob 方式）==========
+        const swCode = `
+            const CACHE_NAME = 'inventory-app-v1';
+            const urlsToCache = [
+                '/',
+                '/index.html'
+            ];
+
+            self.addEventListener('install', (event) => {
+                event.waitUntil(
+                    caches.open(CACHE_NAME)
+                        .then((cache) => cache.addAll(urlsToCache))
+                );
+                self.skipWaiting();
+            });
+
+            self.addEventListener('activate', (event) => {
+                event.waitUntil(
+                    caches.keys().then((cacheNames) => {
+                        return Promise.all(
+                            cacheNames.map((cacheName) => {
+                                if (cacheName !== CACHE_NAME) {
+                                    return caches.delete(cacheName);
+                                }
+                            })
+                        );
+                    })
+                );
+                self.clients.claim();
+            });
+
+            self.addEventListener('fetch', (event) => {
+                event.respondWith(
+                    caches.match(event.request)
+                        .then((response) => {
+                            if (response) {
+                                return response;
+                            }
+                            return fetch(event.request)
+                                .then((response) => {
+                                    if (!response || response.status !== 200 || response.type !== 'basic') {
+                                        return response;
+                                    }
+                                    const responseToCache = response.clone();
+                                    caches.open(CACHE_NAME)
+                                        .then((cache) => {
+                                            cache.put(event.request, responseToCache);
+                                        });
+                                    return response;
+                                });
+                        })
+                        .catch(() => {
+                            return new Response('离线模式', { status: 503 });
+                        })
+                );
+            });
+        `;
+
+        if ('serviceWorker' in navigator) {
+            const blob = new Blob([swCode], { type: 'application/javascript' });
+            const swUrl = URL.createObjectURL(blob);
+            navigator.serviceWorker.register(swUrl)
+                .then(() => console.log('Service Worker 注册成功'))
+                .catch((err) => console.log('Service Worker 注册失败', err));
+        }
+
+        // ========== 数据管理 ==========
+        const STORAGE_KEY = 'home_inventory_data';
+
+        const CATEGORIES = {
+            essential: { name: '必需品', color: '#3498db' },
+            wait: { name: '等优惠再买', color: '#e67e22' },
+            digital: { name: '数码类', color: '#27ae60' },
+            other: { name: '其他', color: '#9b59b6' }
+        };
+
+        const PRIORITIES = {
+            high: { name: '高', value: 3, class: 'priority-high' },
+            medium: { name: '中', value: 2, class: 'priority-medium' },
+            low: { name: '低', value: 1, class: 'priority-low' }
+        };
+
+        const sampleData = [
+            { id: 1, name: '大米', category: 'essential', quantity: 5, threshold: 3, priority: 'high' },
+            { id: 2, name: '充电宝', category: 'digital', quantity: 0, threshold: 1, priority: 'high' },
+            { id: 3, name: '洗发水', category: 'essential', quantity: 1, threshold: 2, priority: 'medium' },
+            { id: 4, name: '数据线', category: 'digital', quantity: 3, threshold: 2, priority: 'low' }
+        ];
+
+        let inventory = [];
+        let nextId = 1;
+        let pieChart = null;
+        let barChart = null;
+        let sortAscending = false;
+
+        let devCategories = { ...CATEGORIES };
+        let tableColumns = {
+            name: { visible: true, label: '名称' },
+            category: { visible: true, label: '分类' },
+            quantity: { visible: true, label: '当前数量' },
+            threshold: { visible: true, label: '最低阈值' },
+            priority: { visible: true, label: '优先级' },
+            status: { visible: true, label: '状态' },
+            action: { visible: true, label: '操作' }
+        };
+
+        // ========== 数据操作 ==========
+        function loadData() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                const data = JSON.parse(stored);
+                inventory = data.inventory || [];
+                nextId = data.nextId || 1;
+                inventory.forEach(item => {
+                    if (!item.priority) item.priority = 'medium';
+                });
+            } else {
+                inventory = [...sampleData];
+                nextId = sampleData.length + 1;
+                saveData();
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                inventory: inventory,
+                nextId: nextId
+            }));
+        }
+
+        function addOrUpdateItem() {
+            const name = document.getElementById('itemName').value.trim();
+            const category = document.getElementById('itemCategory').value;
+            const quantity = parseInt(document.getElementById('itemQuantity').value) || 0;
+            const threshold = parseInt(document.getElementById('itemThreshold').value) || 0;
+            const priority = document.getElementById('itemPriority').value;
+
+            if (!name) {
+                alert('请输入物品名称');
+                return;
+            }
+
+            const existingIndex = inventory.findIndex(item => item.name === name);
+            if (existingIndex !== -1) {
+                inventory[existingIndex].quantity = quantity;
+                inventory[existingIndex].threshold = threshold;
+                inventory[existingIndex].category = category;
+                inventory[existingIndex].priority = priority;
+            } else {
+                inventory.push({
+                    id: nextId++,
+                    name, category, quantity, threshold, priority
+                });
+            }
+
+            saveData();
+            updateUI();
+            document.getElementById('itemName').value = '';
+            document.getElementById('itemQuantity').value = '1';
+            document.getElementById('itemThreshold').value = '1';
+            document.getElementById('itemName').focus();
+        }
+
+        function incrementQuantity(id) {
+            const item = inventory.find(i => i.id === id);
+            if (item) {
+                item.quantity++;
+                saveData();
+                updateUI();
+            }
+        }
+
+        function decrementQuantity(id) {
+            const item = inventory.find(i => i.id === id);
+            if (item && item.quantity > 0) {
+                item.quantity--;
+                saveData();
+                updateUI();
+            }
+        }
+
+        function deleteItem(id) {
+            if (confirm('确定要删除这个物品吗？')) {
+                inventory = inventory.filter(item => item.id !== id);
+                saveData();
+                updateUI();
+            }
+        }
+
+        function getItemStatus(item) {
+            if (item.quantity === 0) return 'danger';
+            if (item.quantity <= item.threshold) return 'warning';
+            return 'normal';
+        }
+
+        function getStatusText(status) {
+            return { danger: '已用完', warning: '需补货', normal: '正常' }[status];
+        }
+
+        function getUrgentItems() {
+            const urgent = inventory.filter(item => item.quantity <= item.threshold);
+            urgent.sort((a, b) => PRIORITIES[b.priority].value - PRIORITIES[a.priority].value);
+            return urgent;
+        }
+
+        // ========== UI 更新 ==========
+        function updateUI() {
+            renderCharts();
+            renderUrgentList();
+            renderItemList();
+            updateAlertBadge();
+        }
+
+        function updateAlertBadge() {
+            const count = getUrgentItems().length;
+            const badge = document.getElementById('alertBadge');
+            if (count > 0) {
+                badge.textContent = count;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function scrollToUrgentList() {
+            document.getElementById('urgentCard').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // ========== 图表渲染 ==========
+        function renderCharts() {
+            renderPieChart();
+            renderBarChart();
+        }
+
+        function renderPieChart() {
+            const ctx = document.getElementById('pieChart').getContext('2d');
+            const categoryCount = {};
+            Object.keys(devCategories).forEach(key => categoryCount[key] = 0);
+            inventory.forEach(item => {
+                if (categoryCount[item.category] !== undefined) categoryCount[item.category]++;
+            });
+
+            const data = {
+                labels: Object.values(devCategories).map(c => c.name),
+                datasets: [{
+                    data: Object.values(categoryCount),
+                    backgroundColor: Object.values(devCategories).map(c => c.color),
+                    borderWidth: 0
+                }]
+            };
+
+            if (pieChart) {
+                pieChart.data = data;
+                pieChart.update();
+            } else {
+                pieChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { padding: 15, usePointStyle: true, font: { size: 13 } } },
+                            title: { display: true, text: '物品分类占比', font: { size: 14, weight: '600' }, padding: { bottom: 10 } }
+                        }
+                    }
+                });
+            }
+        }
+
+        function renderBarChart() {
+            const ctx = document.getElementById('barChart').getContext('2d');
+            const colors = inventory.map(item => {
+                const status = getItemStatus(item);
+                return status === 'danger' ? '#e74c3c' : status === 'warning' ? '#f39c12' : '#27ae60';
+            });
+
+            const data = {
+                labels: inventory.map(item => item.name),
+                datasets: [
+                    {
+                        label: '当前库存',
+                        data: inventory.map(item => item.quantity),
+                        backgroundColor: colors,
+                        borderRadius: 4,
+                        barThickness: 20
+                    },
+                    {
+                        label: '最低阈值',
+                        data: inventory.map(item => item.threshold),
+                        type: 'line',
+                        borderColor: '#e74c3c',
+                        borderDash: [5, 5],
+                        pointRadius: 3,
+                        tension: 0.3,
+                        fill: false
+                    }
+                ]
+            };
+
+            if (barChart) {
+                barChart.data = data;
+                barChart.update();
+            } else {
+                barChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        scales: {
+                            x: { beginAtZero: true, grid: { display: false } },
+                            y: { grid: { display: false } }
+                        },
+                        plugins: {
+                            legend: { position: 'bottom', labels: { padding: 15, usePointStyle: true, font: { size: 13 } } },
+                            title: { display: true, text: '库存状态一览', font: { size: 14, weight: '600' }, padding: { bottom: 10 } }
+                        }
+                    }
+                });
+            }
+        }
+
+        // ========== 急需清单渲染 ==========
+        function renderUrgentList() {
+            const urgentItems = getUrgentItems();
+            const container = document.getElementById('urgentList');
+
+            if (urgentItems.length === 0) {
+                container.innerHTML = '<div class="empty-text">暂无急需购买的物品 ✓</div>';
+                return;
+            }
+
+            container.innerHTML = urgentItems.map(item => {
+                const status = getItemStatus(item);
+                const stockClass = status === 'danger' ? 'stock-zero' : 'stock-low';
+                const stockText = status === 'danger' ? '已用完' : '需补货';
+                const priorityConfig = PRIORITIES[item.priority];
+
+                return `
+                    <div class="urgent-item">
+                        <div class="urgent-item-info">
+                            <div class="urgent-item-name">${item.name}</div>
+                            <div class="urgent-item-detail">阈值: ${item.threshold} | 分类: ${devCategories[item.category]?.name || item.category}</div>
+                        </div>
+                        <span class="priority-tag ${priorityConfig.class}">${priorityConfig.name}</span>
+                        <span class="urgent-item-stock ${stockClass}">${item.quantity} ${stockText}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ========== 物品列表渲染 ==========
+        function renderItemList() {
+            const categoryFilter = document.getElementById('filterCategory').value;
+            const statusFilter = document.getElementById('filterStatus').value;
+            const tbody = document.getElementById('itemTableBody');
+            const thead = document.querySelector('table thead tr');
+            const emptyState = document.getElementById('emptyState');
+
+            let filteredItems = [...inventory];
+
+            if (categoryFilter !== 'all') {
+                filteredItems = filteredItems.filter(item => item.category === categoryFilter);
+            }
+            if (statusFilter === 'warning') {
+                filteredItems = filteredItems.filter(item => item.quantity <= item.threshold);
+            }
+
+            filteredItems.sort((a, b) => {
+                const diff = PRIORITIES[b.priority].value - PRIORITIES[a.priority].value;
+                return sortAscending ? -diff : diff;
+            });
+
+            // 渲染表头
+            const columnMap = {
+                name: '名称', category: '分类', quantity: '当前数量',
+                threshold: '最低阈值', priority: '优先级', status: '状态', action: '操作'
+            };
+            thead.innerHTML = Object.entries(columnMap)
+                .filter(([key]) => tableColumns[key].visible)
+                .map(([key, label]) => `<th>${label}</th>`).join('');
+
+            if (filteredItems.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            tbody.innerHTML = filteredItems.map(item => {
+                const status = getItemStatus(item);
+                const statusClass = `status-${status}`;
+                const statusText = getStatusText(status);
+
+                let cells = '';
+                if (tableColumns.name.visible) cells += `<td><span class="editable" contenteditable="true" onblur="updateItemField(${item.id}, 'name', this.textContent)">${item.name}</span></td>`;
+                if (tableColumns.category.visible) {
+                    cells += `<td><select class="editable-select" onchange="updateItemField(${item.id}, 'category', this.value)">`;
+                    Object.entries(devCategories).forEach(([key, cat]) => {
+                        cells += `<option value="${key}" ${item.category === key ? 'selected' : ''}>${cat.name}</option>`;
+                    });
+                    cells += `</select></td>`;
+                }
+                if (tableColumns.quantity.visible) cells += `<td><span class="editable" contenteditable="true" onblur="updateItemField(${item.id}, 'quantity', this.textContent)">${item.quantity}</span></td>`;
+                if (tableColumns.threshold.visible) cells += `<td><span class="editable" contenteditable="true" onblur="updateItemField(${item.id}, 'threshold', this.textContent)">${item.threshold}</span></td>`;
+                if (tableColumns.priority.visible) {
+                    cells += `<td><select class="editable-select" onchange="updateItemField(${item.id}, 'priority', this.value)">`;
+                    Object.entries(PRIORITIES).forEach(([key, p]) => {
+                        cells += `<option value="${key}" ${item.priority === key ? 'selected' : ''}>${p.name}</option>`;
+                    });
+                    cells += `</select></td>`;
+                }
+                if (tableColumns.status.visible) cells += `<td><span class="status-tag ${statusClass}">${statusText}</span></td>`;
+                if (tableColumns.action.visible) {
+                    cells += `<td><div class="action-buttons">
+                        <button class="btn-action btn-inc" onclick="incrementQuantity(${item.id})">+</button>
+                        <button class="btn-action btn-dec" onclick="decrementQuantity(${item.id})" ${item.quantity === 0 ? 'disabled' : ''}>−</button>
+                        <button class="btn-action btn-delete" onclick="deleteItem(${item.id})">×</button>
+                    </div></td>`;
+                }
+
+                return `<tr data-id="${item.id}">${cells}</tr>`;
+            }).join('');
+        }
+
+        function updateItemField(id, field, value) {
+            const item = inventory.find(i => i.id === id);
+            if (!item) return;
+            if (field === 'quantity' || field === 'threshold') {
+                value = parseInt(value) || 0;
+            }
+            item[field] = value;
+            saveData();
+            updateUI();
+        }
+
+        function toggleSort() {
+            sortAscending = !sortAscending;
+            document.getElementById('sortIcon').textContent = sortAscending ? '↓' : '↑';
+            document.getElementById('sortBtn').classList.add('active');
+            renderItemList();
+        }
+
+        // ========== 开发者工具栏 ==========
+        function toggleDevToolbar() {
+            document.getElementById('devToolbar').classList.toggle('open');
+            if (document.getElementById('devToolbar').classList.contains('open')) {
+                renderCategoryList();
+                renderColumnList();
+            }
+        }
+
+        function toggleModule(switchEl) {
+            switchEl.classList.toggle('active');
+            const module = document.getElementById(switchEl.getAttribute('data-module'));
+            if (module) module.classList.toggle('hidden');
+        }
+
+        function renderCategoryList() {
+            const container = document.getElementById('categoryList');
+            container.innerHTML = Object.entries(devCategories).map(([key, cat]) => `
+                <div class="dev-toolbar-item">
+                    <label style="display:flex;align-items:center;gap:8px;">
+                        <span style="width:12px;height:12px;background:${cat.color};border-radius:2px;"></span>
+                        ${cat.name}
+                    </label>
+                    <button class="dev-toolbar-small-btn" onclick="removeCategory('${key}')">删除</button>
+                </div>
+            `).join('');
+        }
+
+        function addCategory() {
+            const key = document.getElementById('newCategoryKey').value.trim();
+            const name = document.getElementById('newCategoryName').value.trim();
+            const color = document.getElementById('newCategoryColor').value.trim() || '#7f8c8d';
+
+            if (!key || !name) {
+                alert('请填写分类键名和名称');
+                return;
+            }
+
+            devCategories[key] = { name, color };
+            saveDevSettings();
+            updateCategorySelects();
+            renderCategoryList();
+            document.getElementById('newCategoryKey').value = '';
+            document.getElementById('newCategoryName').value = '';
+            document.getElementById('newCategoryColor').value = '';
+            updateUI();
+        }
+
+        function removeCategory(key) {
+            if (Object.keys(devCategories).length <= 1) {
+                alert('至少保留一个分类');
+                return;
+            }
+            if (confirm(`确定删除分类 "${devCategories[key].name}" 吗？`)) {
+                delete devCategories[key];
+                saveDevSettings();
+                updateCategorySelects();
+                renderCategoryList();
+                const firstKey = Object.keys(devCategories)[0];
+                inventory.forEach(item => {
+                    if (!devCategories[item.category]) item.category = firstKey;
+                });
+                saveData();
+                updateUI();
+            }
+        }
+
+        function updateCategorySelects() {
+            ['itemCategory', 'filterCategory'].forEach(id => {
+                const select = document.getElementById(id);
+                if (select) {
+                    const val = select.value;
+                    select.innerHTML = Object.entries(devCategories)
+                        .map(([k, c]) => `<option value="${k}" ${k === val ? 'selected' : ''}>${c.name}</option>`)
+                        .join('');
+                }
+            });
+        }
+
+        function renderColumnList() {
+            const container = document.getElementById('columnList');
+            container.innerHTML = Object.entries(tableColumns).map(([key, col]) => `
+                <div class="dev-toolbar-item">
+                    <label>${col.label}</label>
+                    <div class="dev-toolbar-switch ${col.visible ? 'active' : ''}" data-column="${key}" onclick="toggleColumn(this)"></div>
+                </div>
+            `).join('');
+        }
+
+        function toggleColumn(switchEl) {
+            switchEl.classList.toggle('active');
+            const key = switchEl.getAttribute('data-column');
+            tableColumns[key].visible = !tableColumns[key].visible;
+            saveDevSettings();
+            renderItemList();
+        }
+
+        function saveDevSettings() {
+            localStorage.setItem('devCategories', JSON.stringify(devCategories));
+            localStorage.setItem('tableColumns', JSON.stringify(tableColumns));
+        }
+
+        function loadDevSettings() {
+            const savedCategories = localStorage.getItem('devCategories');
+            const savedColumns = localStorage.getItem('tableColumns');
+            if (savedCategories) {
+                devCategories = JSON.parse(savedCategories);
+                updateCategorySelects();
+            }
+            if (savedColumns) {
+                tableColumns = JSON.parse(savedColumns);
+            }
+        }
+
+        // ========== 数据导入导出（带日期） ==========
+        function exportData() {
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0];
+            const data = {
+                version: '1.0',
+                exportDate: today.toISOString(),
+                inventory: inventory,
+                categories: devCategories,
+                columns: tableColumns
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `库存备份_${dateStr}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData() {
+            document.getElementById('importFile').click();
+        }
+
+        function handleImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (confirm('导入将覆盖当前数据，确定继续吗？')) {
+                        if (data.inventory) {
+                            inventory = data.inventory;
+                            nextId = Math.max(...inventory.map(i => i.id), 0) + 1;
+                        }
+                        if (data.categories) {
+                            devCategories = data.categories;
+                            updateCategorySelects();
+                        }
+                        if (data.columns) {
+                            tableColumns = data.columns;
+                        }
+                        saveData();
+                        saveDevSettings();
+                        updateUI();
+                        alert('数据导入成功！');
+                    }
+                } catch (err) {
+                    alert('导入失败：无效的 JSON 文件');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function confirmReset() {
+            if (confirm('确定要重置所有数据吗？此操作不可恢复！')) {
+                inventory = [...sampleData];
+                nextId = sampleData.length + 1;
+                devCategories = { ...CATEGORIES };
+                tableColumns = {
+                    name: { visible: true, label: '名称' },
+                    category: { visible: true, label: '分类' },
+                    quantity: { visible: true, label: '当前数量' },
+                    threshold: { visible: true, label: '最低阈值' },
+                    priority: { visible: true, label: '优先级' },
+                    status: { visible: true, label: '状态' },
+                    action: { visible: true, label: '操作' }
+                };
+                localStorage.removeItem(STORAGE_KEY);
+                localStorage.removeItem('devCategories');
+                localStorage.removeItem('tableColumns');
+                updateCategorySelects();
+                saveData();
+                updateUI();
+                alert('数据已重置');
+            }
+        }
+
+        // ========== 初始化 ==========
+        document.getElementById('itemName').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') addOrUpdateItem();
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDevSettings();
+            loadData();
+            updateUI();
+        });
+    </script>
+</body>
+</html>
